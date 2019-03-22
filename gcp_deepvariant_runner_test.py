@@ -631,6 +631,702 @@ class DeepvariantRunnerTest(unittest.TestCase):
     with self.assertRaises(ValueError):
       gcp_deepvariant_runner.run(self._argv)
 
+  def testRunFailsSetOptimizedFlagsMissingExpectedModel(self):
+    self._argv.extend(['--set_optimized_flags_based_on_bam_size'])
+    with self.assertRaises(ValueError):
+      gcp_deepvariant_runner.run(self._argv)
+
+  def testRunFailsSetOptimizedFlagsMissingBamFile(self):
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
+        '--bam',
+        'gs://bucket/bam',
+        '--ref',
+        'gs://bucket/ref',
+        '--set_optimized_flags_based_on_bam_size',
+    ]
+    with self.assertRaises(ValueError):
+      gcp_deepvariant_runner.run(self._argv)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWesSmall_makeExamples(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
+    expected_workers = 8
+    expected_cores = 1
+    expected_shards = expected_workers * expected_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'make_examples',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'gcr.io/dockerimage', 'SHARDS={}'.format(expected_shards),
+                  'SHARD_START_INDEX={}'.format(i),
+                  'SHARD_END_INDEX={}'.format(i),
+                  'gs://bucket/staging/logs/make_examples/{}'.format(i),
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '200'),
+              'gs://bucket/staging/logs/make_examples/{}'.format(i)
+          ]))
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWesLarge_makeExamples(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 12 * 1024 * 1024 * 1024 + 1
+    expected_workers = 16
+    expected_cores = 1
+    expected_shards = expected_workers * expected_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'make_examples',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'gcr.io/dockerimage', 'SHARDS={}'.format(expected_shards),
+                  'SHARD_START_INDEX={}'.format(i),
+                  'SHARD_END_INDEX={}'.format(i),
+                  'gs://bucket/staging/logs/make_examples/{}'.format(i),
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '200'),
+              'gs://bucket/staging/logs/make_examples/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsSmall_makeExamples(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
+    expected_workers = 32
+    expected_cores = 1
+    expected_shards = expected_workers * expected_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'make_examples',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'gcr.io/dockerimage', 'SHARDS={}'.format(expected_shards),
+                  'SHARD_START_INDEX={}'.format(i),
+                  'SHARD_END_INDEX={}'.format(i),
+                  'gs://bucket/staging/logs/make_examples/{}'.format(i),
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '200'),
+              'gs://bucket/staging/logs/make_examples/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsMedium_make_examples(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
+    expected_workers = 64
+    expected_cores = 1
+    expected_shards = expected_workers * expected_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'make_examples',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'gcr.io/dockerimage', 'SHARDS={}'.format(expected_shards),
+                  'SHARD_START_INDEX={}'.format(i),
+                  'SHARD_END_INDEX={}'.format(i),
+                  'gs://bucket/staging/logs/make_examples/{}'.format(i),
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '200'),
+              'gs://bucket/staging/logs/make_examples/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_makeExamples(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
+    expected_workers = 128
+    expected_cores = 1
+    expected_shards = expected_workers * expected_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'make_examples',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'gcr.io/dockerimage', 'SHARDS={}'.format(expected_shards),
+                  'SHARD_START_INDEX={}'.format(i),
+                  'SHARD_END_INDEX={}'.format(i),
+                  'gs://bucket/staging/logs/make_examples/{}'.format(i),
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '200'),
+              'gs://bucket/staging/logs/make_examples/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWesSmall_callVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+
+    mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
+    expected_workers = 1
+    expected_cores = 4
+    expected_shards = 8  # equals to make_exmples: num_wokers * num_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'call_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'call_variants', 'gcr.io/dockerimage_gpu', 'nvidia-tesla-k80',
+                  'SHARDS={}'.format(expected_shards),
+                  'CALL_VARIANTS_SHARDS={}'.format(expected_workers),
+                  'CALL_VARIANTS_SHARD_INDEX={}'.format(i),
+                  'EXAMPLES=gs://bucket/staging/examples/{}/*'.format(i),
+                  'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '50'),
+              'gs://bucket/staging/logs/call_variants/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWesLarge_callVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+
+    mock_object_size.return_value = 12 * 1024 * 1024 * 1024 + 1
+    expected_workers = 2
+    expected_cores = 4
+    expected_shards = 16  # equals to make_exmples: num_wokers * num_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'call_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'call_variants', 'gcr.io/dockerimage_gpu', 'nvidia-tesla-k80',
+                  'SHARDS={}'.format(expected_shards),
+                  'CALL_VARIANTS_SHARDS={}'.format(expected_workers),
+                  'CALL_VARIANTS_SHARD_INDEX={}'.format(i),
+                  'EXAMPLES=gs://bucket/staging/examples/{}/*'.format(i),
+                  'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '50'),
+              'gs://bucket/staging/logs/call_variants/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsSmall_callVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+
+    mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
+    expected_workers = 4
+    expected_cores = 4
+    expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'call_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'call_variants', 'gcr.io/dockerimage_gpu', 'nvidia-tesla-k80',
+                  'SHARDS={}'.format(expected_shards),
+                  'CALL_VARIANTS_SHARDS={}'.format(expected_workers),
+                  'CALL_VARIANTS_SHARD_INDEX={}'.format(i),
+                  'EXAMPLES=gs://bucket/staging/examples/{}/*'.format(i),
+                  'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '50'),
+              'gs://bucket/staging/logs/call_variants/{}'.format(i)
+          ]))
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
+  @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
+  @mock.patch.object(gke_cluster.GkeCluster, 'delete_cluster')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsMedium_callVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_delete_cluster, mock_deploy_pod, mock_init):
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+
+    mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'call_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_init.assert_called_once()
+    mock_delete_cluster.assert_called_once_with(wait=False)
+    mock_deploy_pod.assert_called_once_with(
+        pod_config=mock.ANY,
+        pod_name=AnyStringWith('deepvariant-'),
+        retries=2,
+        wait=True)
+
+  @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
+  @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
+  @mock.patch.object(gke_cluster.GkeCluster, 'delete_cluster')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_callVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_delete_cluster, mock_deploy_pod, mock_init):
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+
+    mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'call_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+
+    gcp_deepvariant_runner.run(self._argv)
+    mock_init.assert_called_once()
+    mock_delete_cluster.assert_called_once_with(wait=False)
+    mock_deploy_pod.assert_called_once_with(
+        pod_config=mock.ANY,
+        pod_name=AnyStringWith('deepvariant-'),
+        retries=2,
+        wait=True)
+
+  @mock.patch('gcp_deepvariant_runner._run_job')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsSmall_postProcessVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_run_job):
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
+    call_variant_workers = 4
+    expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
+    # Default flag values
+    expected_cores = 8
+    expected_ram = 30 * 1024
+    expected_gvcf_disk = gcp_deepvariant_runner._POSTPROCESS_VARIANTS_DISK_GVCF
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'postprocess_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+        '--gvcf_outfile',
+        'gvcf-folder-path',
+    ]
+    gcp_deepvariant_runner.run(self._argv)
+    mock_run_job.assert_called_once_with(
+        _HasAllOf(
+            'postprocess_variants', 'gcr.io/dockerimage',
+            'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+            'SHARDS={}'.format(expected_shards),
+            'CALL_VARIANTS_SHARDS={}'.format(call_variant_workers),
+            '--machine-type', 'custom-{c}-{r}'.format(
+                c=expected_cores,
+                r=expected_ram), '--disk-size', '{}'.format(expected_gvcf_disk),
+            'OUTFILE=gs://bucket/output.vcf', 'GVCF_OUTFILE=gvcf-folder-path'),
+        'gs://bucket/staging/logs/postprocess_variants')
+
+  @mock.patch('gcp_deepvariant_runner._run_job')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
+  def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_postProcessVariants(
+      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      mock_run_job):
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
+    call_variant_workers = 1
+    expected_shards = 128  # equals to make_exmples: num_wokers * num_cores
+    # Default flag values
+    expected_cores = 8
+    expected_ram = 30 * 1024
+    expected_disk = 30
+    self._argv = [
+        '--project',
+        'project',
+        '--docker_image',
+        'gcr.io/dockerimage',
+        '--zones',
+        'zone-a',
+        '--outfile',
+        'gs://bucket/output.vcf',
+        '--staging',
+        'gs://bucket/staging',
+        '--model',
+        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
+        '--bam',
+        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+        '--ref',
+        'gs://bucket/ref',
+        '--jobs_to_run',
+        'postprocess_variants',
+        '--set_optimized_flags_based_on_bam_size',
+        '--docker_image_gpu',
+        'gcr.io/dockerimage_gpu',
+    ]
+    gcp_deepvariant_runner.run(self._argv)
+    mock_run_job.assert_called_once_with(
+        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage',
+                  'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+                  'SHARDS={}'.format(expected_shards),
+                  'CALL_VARIANTS_SHARDS={}'.format(call_variant_workers),
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size',
+                  '{}'.format(expected_disk), 'OUTFILE=gs://bucket/output.vcf'),
+        'gs://bucket/staging/logs/postprocess_variants')
+
 
 class UtilsTest(unittest.TestCase):
 
