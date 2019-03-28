@@ -483,9 +483,11 @@ def _get_bam_category(pipeline_args):
       return BamCategories.WGS_MEDIUM
 
 
-def _set_args_based_on_bam_category(bam_category, pipeline_args):
-  """Sets pipeline args using the given bam_category and default flag values."""
+def _set_computational_flags_based_on_bam_size(pipeline_args):
+  """Automatically sets computational flags based on size of input BAM file."""
+  bam_category = _get_bam_category(pipeline_args)
   default_flags = _DEFAULT_FLAGS[bam_category]
+
   pipeline_args.shards = (
       default_flags['make_examples_workers'] *
       default_flags['make_examples_cores_per_worker'])
@@ -515,25 +517,6 @@ def _set_args_based_on_bam_category(bam_category, pipeline_args):
   pipeline_args.preemptible = True
   if pipeline_args.gvcf_outfile:
     pipeline_args.postprocess_variants_disk_gb = _POSTPROCESS_VARIANTS_DISK_GVCF
-
-
-def _set_computational_flags_based_on_bam_size(pipeline_args):
-  """Automatically sets computational flags based on size of input BAM file."""
-  # First validating all necessary flags are present.
-  if not (pipeline_args.docker_image and pipeline_args.docker_image_gpu):
-    raise ValueError('both --docker_image and --docker_image_gpu must be '
-                     'provided with --set_optimized_flags_based_on_bam_size')
-  is_wes = pipeline_args.model.find(_WES_STANDARD) != -1
-  is_wgs = pipeline_args.model.find(_WGS_STANDARD) != -1
-  if is_wes == is_wgs:
-    raise ValueError('Unable to automatically set computational flags. Given '
-                     'model is neither WGS nor WES: %s' % pipeline_args.model)
-  if not pipeline_args.bam.endswith(_BAM_FILE_SUFFIX):
-    raise ValueError(
-        'Only able to automatically set computational flags for BAM files.')
-
-  bam_category = _get_bam_category(pipeline_args)
-  _set_args_based_on_bam_category(bam_category, pipeline_args)
 
 
 def _run_make_examples(pipeline_args):
@@ -828,6 +811,21 @@ def _run_postprocess_variants(pipeline_args):
 def _validate_and_complete_args(pipeline_args):
   """Validates pipeline arguments and fills some missing args (if any)."""
   if pipeline_args.set_optimized_flags_based_on_bam_size:
+    # First validating all necessary flags are present.
+    if not (pipeline_args.docker_image and pipeline_args.docker_image_gpu):
+      raise ValueError('both --docker_image and --docker_image_gpu must be '
+                       'provided with --set_optimized_flags_based_on_bam_size')
+    is_wes = pipeline_args.model.find(_WES_STANDARD) != -1
+    is_wgs = pipeline_args.model.find(_WGS_STANDARD) != -1
+    if not is_wes and not is_wgs:
+      raise ValueError('Unable to automatically set computational flags. Given '
+                       'model is neither WGS nor WES: %s' % pipeline_args.model)
+    if is_wes and is_wgs:
+      raise ValueError('Unable to automatically set computational flags. Given '
+                       'model matches both WGS and WES: %s' % pipeline_args.model)
+    if not pipeline_args.bam.endswith(_BAM_FILE_SUFFIX):
+      raise ValueError(
+          'Only able to automatically set computational flags for BAM files.')
     _set_computational_flags_based_on_bam_size(pipeline_args)
   # Basic validation logic. More detailed validation is done by pipelines API.
   if (pipeline_args.job_name_prefix and

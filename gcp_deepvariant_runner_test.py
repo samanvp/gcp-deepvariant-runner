@@ -671,7 +671,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
-    expected_workers = 8
+    expected_workers = 16
     expected_cores = 1
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
@@ -963,7 +963,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
     expected_workers = 1
     expected_cores = 4
-    expected_shards = 8  # equals to make_exmples: num_wokers * num_cores
+    expected_shards = 16  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._argv = [
         '--project',
