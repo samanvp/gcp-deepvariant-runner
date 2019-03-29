@@ -376,16 +376,7 @@ def _gcs_object_exist(gcs_obj_path):
   Args:
     gcs_obj_path: (str) a path to an obj on GCS.
   """
-  try:
-    storage_client = storage.Client()
-    bucket_name = _get_gcs_bucket(gcs_obj_path)
-    obj_name = _get_gcs_relative_path(gcs_obj_path)
-    bucket = storage_client.bucket(bucket_name)
-    obj = bucket.blob(obj_name)
-    return obj.exists()
-  except google_exceptions.Forbidden as e:
-    logging.error('Missing GCS object: %s', str(e))
-    return False
+  return _get_gcs_object_size(gcs_obj_path) != 0
 
 
 def _get_gcs_object_size(gcs_obj_path):
@@ -394,13 +385,23 @@ def _get_gcs_object_size(gcs_obj_path):
   Args:
     gcs_obj_path: (str) a path to an obj on GCS.
   """
-  if not _gcs_object_exist(gcs_obj_path):
+  try:
+    bucket_name = _get_gcs_bucket(gcs_obj_path)
+    obj_name = _get_gcs_relative_path(gcs_obj_path)
+  except ValueError as e:
+    logging.error('Invalid GCS path: %s', str(e))
     return 0
+
   storage_client = storage.Client()
-  bucket_name = _get_gcs_bucket(gcs_obj_path)
-  obj_name = _get_gcs_relative_path(gcs_obj_path)
-  bucket = storage_client.get_bucket(bucket_name)
+  try:
+    bucket = storage_client.get_bucket(bucket_name)
+  except (google_exceptions.NotFound, google_exceptions.Forbidden) as e:
+    logging.error('Unable to access GCS bucket: %s', str(e))
+    return 0
+
   blob = bucket.get_blob(obj_name)
+  if blob is None:
+    return 0
   return blob.size
 
 
