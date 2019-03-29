@@ -120,7 +120,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
   @mock.patch('gcp_deepvariant_runner._run_job')
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunPipeline(self, mock_can_write_to_bucket, mock_obj_exist, mock_pool,
                       mock_run_job):
@@ -162,7 +162,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
   @mock.patch('gcp_deepvariant_runner._run_job')
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunPipeline_WithGVCFOutFile(self, mock_can_write_to_bucket,
                                       mock_obj_exist, mock_pool, mock_run_job):
@@ -212,7 +212,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
         'gs://bucket/staging/logs/postprocess_variants')
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunMakeExamples(self, mock_can_write_to_bucket, mock_obj_exist,
                           mock_pool):
@@ -308,7 +308,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
                          sorted(recieved_actions_list[i].items()))
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunMakeExamples_WithGcsfuse(self, mock_can_write_to_bucket,
                                       mock_obj_exist, mock_pool):
@@ -425,7 +425,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
                          sorted(recieved_actions_list[i].items()))
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunCallVariants(self, mock_can_write_to_bucket, mock_obj_exist,
                           mock_pool):
@@ -467,7 +467,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, 3)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunCallVariants_GPU(self, mock_can_write_to_bucket, mock_obj_exist,
                               mock_pool):
@@ -514,7 +514,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
   @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
   @mock.patch.object(gke_cluster.GkeCluster, '_cluster_exists')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunCallVariants_TPU(self, mock_can_write_to_bucket, mock_obj_exist,
                               mock_cluster_exists, mock_deploy_pod, mock_init):
@@ -570,7 +570,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
       gcp_deepvariant_runner.run(self._argv)
 
   @mock.patch('gcp_deepvariant_runner._run_job')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   def testRunPostProcessVariants(self, mock_can_write_to_bucket, mock_obj_exist,
                                  mock_run_job):
@@ -660,15 +660,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
       gcp_deepvariant_runner.run(self._argv)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWesSmall_makeExamples(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
     expected_workers = 16
@@ -717,15 +714,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWesLarge_makeExamples(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 + 1
     expected_workers = 16
@@ -775,15 +769,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsSmall_makeExamples(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
     expected_workers = 32
@@ -833,15 +824,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsMedium_make_examples(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
     expected_workers = 64
@@ -891,15 +879,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_makeExamples(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
     expected_workers = 128
@@ -949,15 +934,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWesSmall_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
@@ -1010,15 +992,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWesLarge_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 + 1
@@ -1071,15 +1050,12 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch.object(multiprocessing, 'Pool')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsSmall_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_pool):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
@@ -1134,13 +1110,11 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
   @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
   @mock.patch.object(gke_cluster.GkeCluster, 'delete_cluster')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsMedium_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      self, mock_object_size, mock_can_write_to_bucket,
       mock_delete_cluster, mock_deploy_pod, mock_init):
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
@@ -1180,13 +1154,11 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
   @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
   @mock.patch.object(gke_cluster.GkeCluster, 'delete_cluster')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
+      self, mock_object_size, mock_can_write_to_bucket,
       mock_delete_cluster, mock_deploy_pod, mock_init):
-    mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
@@ -1224,13 +1196,10 @@ class DeepvariantRunnerTest(unittest.TestCase):
         wait=True)
 
   @mock.patch('gcp_deepvariant_runner._run_job')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsSmall_postProcessVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_run_job):
-    mock_obj_exist.return_value = True
+      self, mock_object_size, mock_can_write_to_bucket, mock_run_job):
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
     call_variant_workers = 4
@@ -1278,13 +1247,10 @@ class DeepvariantRunnerTest(unittest.TestCase):
         'gs://bucket/staging/logs/postprocess_variants')
 
   @mock.patch('gcp_deepvariant_runner._run_job')
-  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_postProcessVariants(
-      self, mock_object_size, mock_can_write_to_bucket, mock_obj_exist,
-      mock_run_job):
-    mock_obj_exist.return_value = True
+      self, mock_object_size, mock_can_write_to_bucket, mock_run_job):
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
     call_variant_workers = 1

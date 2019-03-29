@@ -370,17 +370,8 @@ def _is_valid_gcs_path(gcs_path):
           urllib.parse.urlparse(gcs_path).netloc != '')
 
 
-def _gcs_object_exist(gcs_obj_path):
-  """Returns true if the given path is a valid object on GCS.
-
-  Args:
-    gcs_obj_path: (str) a path to an obj on GCS.
-  """
-  return _get_gcs_object_size(gcs_obj_path) != 0
-
-
 def _get_gcs_object_size(gcs_obj_path):
-  """Returns the size of the given GCS object.
+  """Returns size of GCS object or 0, if object is missing or access is denied.
 
   Args:
     gcs_obj_path: (str) a path to an obj on GCS.
@@ -823,7 +814,7 @@ def _validate_and_complete_args(pipeline_args):
                        'model is neither WGS nor WES: %s' % pipeline_args.model)
     if is_wes and is_wgs:
       raise ValueError('Unable to automatically set computational flags. Given '
-                       'model matches both WGS and WES: %s' % pipeline_args.model)
+                       'model matches both WGS & WES: %s' % pipeline_args.model)
     if not pipeline_args.bam.endswith(_BAM_FILE_SUFFIX):
       raise ValueError(
           'Only able to automatically set computational flags for BAM files.')
@@ -901,15 +892,16 @@ def _validate_and_complete_args(pipeline_args):
                                                     _BAI_FILE_SUFFIX)
 
   # Ensuring all input files exist...
-  if not _gcs_object_exist(pipeline_args.ref):
+  if _get_gcs_object_size(pipeline_args.ref) == 0:
     raise ValueError('Given reference file via --ref does not exist')
-  if not _gcs_object_exist(pipeline_args.ref_fai):
+  if _get_gcs_object_size(pipeline_args.ref_fai) == 0:
     raise ValueError('Given FAI index file via --ref_fai does not exist')
-  if (pipeline_args.ref_gzi and not _gcs_object_exist(pipeline_args.ref_gzi)):
+  if (pipeline_args.ref_gzi and
+      _get_gcs_object_size(pipeline_args.ref_gzi) == 0):
     raise ValueError('Given GZI index file via --ref_gzi does not exist')
-  if not _gcs_object_exist(pipeline_args.bam):
+  if _get_gcs_object_size(pipeline_args.bam) == 0:
     raise ValueError('Given BAM file via --bam does not exist')
-  if not _gcs_object_exist(pipeline_args.bai):
+  if _get_gcs_object_size(pipeline_args.bai) == 0:
     raise ValueError('Given BAM index file via --bai does not exist')
   # ...and we can write to output buckets.
   if not _can_write_to_bucket(_get_gcs_bucket(pipeline_args.staging)):
