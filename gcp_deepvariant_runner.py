@@ -166,8 +166,8 @@ _POD_CONFIG_TEMPLATE = r"""
 _WGS_STANDARD = 'wgs_standard'
 _WES_STANDARD = 'wes_standard'
 _WES_LARGE_THR = 12 * 1024 * 1024 * 1024
-_WGS_LARGE_THR = 200 * 1024 * 1024 * 1024
 _WGS_SMALL_THR = 25 * 1024 * 1024 * 1024
+_WGS_LARGE_THR = 200 * 1024 * 1024 * 1024
 
 
 class BamCategories(enum.Enum):
@@ -198,19 +198,23 @@ _DEFAULT_FLAGS[BamCategories.WES_LARGE] = {
 _DEFAULT_FLAGS[BamCategories.WGS_SMALL] = {
     'make_examples_workers': 32,
     'make_examples_cores_per_worker': 1,
-    'call_variants_workers': 4,
+    'call_variants_workers': 2,
     'call_variants_cores_per_worker': 4,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_MEDIUM] = {
     'make_examples_workers': 64,
     'make_examples_cores_per_worker': 1,
-    'tpu': True
+    'call_variants_workers': 4,
+    'call_variants_cores_per_worker': 4,
+    'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_LARGE] = {
     'make_examples_workers': 128,
     'make_examples_cores_per_worker': 1,
-    'tpu': True
+    'call_variants_workers': 8,
+    'call_variants_cores_per_worker': 4,
+    'gpu': True
 }
 # Common computational flag values across all BAM categories.
 _RAM_PER_CORE = 4

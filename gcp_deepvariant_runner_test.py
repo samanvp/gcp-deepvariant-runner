@@ -1059,7 +1059,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
-    expected_workers = 4
+    expected_workers = 2
     expected_cores = 4
     expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
@@ -1107,17 +1107,21 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.assert_has_calls(expected_mock_calls,)
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
-  @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
-  @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
-  @mock.patch.object(gke_cluster.GkeCluster, 'delete_cluster')
+
+  @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsMedium_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket,
-      mock_delete_cluster, mock_deploy_pod, mock_init):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
+    expected_workers = 4
+    expected_cores = 4
+    expected_shards = 64  # equals to make_exmples: num_wokers * num_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._argv = [
         '--project',
         'project',
@@ -1142,26 +1146,40 @@ class DeepvariantRunnerTest(unittest.TestCase):
         'gcr.io/dockerimage_gpu',
     ]
 
-    gcp_deepvariant_runner.run(self._argv)
-    mock_init.assert_called_once()
-    mock_delete_cluster.assert_called_once_with(wait=False)
-    mock_deploy_pod.assert_called_once_with(
-        pod_config=mock.ANY,
-        pod_name=AnyStringWith('deepvariant-'),
-        retries=2,
-        wait=True)
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'call_variants', 'gcr.io/dockerimage_gpu', 'nvidia-tesla-k80',
+                  'SHARDS={}'.format(expected_shards),
+                  'CALL_VARIANTS_SHARDS={}'.format(expected_workers),
+                  'CALL_VARIANTS_SHARD_INDEX={}'.format(i),
+                  'EXAMPLES=gs://bucket/staging/examples/{}/*'.format(i),
+                  'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '50'),
+              'gs://bucket/staging/logs/call_variants/{}'.format(i)
+          ]))
 
-  @mock.patch.object(gke_cluster.GkeCluster, '__init__', return_value=None)
-  @mock.patch.object(gke_cluster.GkeCluster, 'deploy_pod')
-  @mock.patch.object(gke_cluster.GkeCluster, 'delete_cluster')
+    gcp_deepvariant_runner.run(self._argv)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
+
+  @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
   def testRunSetOptimizedFlagsBasedOnBamSizeWgsLarge_callVariants(
-      self, mock_object_size, mock_can_write_to_bucket,
-      mock_delete_cluster, mock_deploy_pod, mock_init):
+      self, mock_object_size, mock_can_write_to_bucket, mock_pool):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
 
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
+    expected_workers = 8
+    expected_cores = 4
+    expected_shards = 128  # equals to make_exmples: num_wokers * num_cores
+    expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._argv = [
         '--project',
         'project',
@@ -1186,14 +1204,25 @@ class DeepvariantRunnerTest(unittest.TestCase):
         'gcr.io/dockerimage_gpu',
     ]
 
+    expected_mock_calls = []
+    for i in range(expected_workers):
+      expected_mock_calls.append(
+          mock.call(mock.ANY, [
+              _HasAllOf(
+                  'call_variants', 'gcr.io/dockerimage_gpu', 'nvidia-tesla-k80',
+                  'SHARDS={}'.format(expected_shards),
+                  'CALL_VARIANTS_SHARDS={}'.format(expected_workers),
+                  'CALL_VARIANTS_SHARD_INDEX={}'.format(i),
+                  'EXAMPLES=gs://bucket/staging/examples/{}/*'.format(i),
+                  'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
+                  '--machine-type', 'custom-{c}-{r}'.format(
+                      c=expected_cores, r=expected_ram), '--disk-size', '50'),
+              'gs://bucket/staging/logs/call_variants/{}'.format(i)
+          ]))
+
     gcp_deepvariant_runner.run(self._argv)
-    mock_init.assert_called_once()
-    mock_delete_cluster.assert_called_once_with(wait=False)
-    mock_deploy_pod.assert_called_once_with(
-        pod_config=mock.ANY,
-        pod_name=AnyStringWith('deepvariant-'),
-        retries=2,
-        wait=True)
+    mock_apply_async.assert_has_calls(expected_mock_calls,)
+    self.assertEqual(mock_apply_async.call_count, expected_workers)
 
   @mock.patch('gcp_deepvariant_runner._run_job')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
@@ -1202,7 +1231,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
       self, mock_object_size, mock_can_write_to_bucket, mock_run_job):
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
-    call_variant_workers = 4
+    call_variant_workers = 2
     expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
     # Default flag values
     expected_cores = 8
@@ -1253,7 +1282,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
       self, mock_object_size, mock_can_write_to_bucket, mock_run_job):
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
-    call_variant_workers = 1
+    call_variant_workers = 8
     expected_shards = 128  # equals to make_exmples: num_wokers * num_cores
     # Default flag values
     expected_cores = 8
