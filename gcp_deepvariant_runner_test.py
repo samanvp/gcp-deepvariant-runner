@@ -118,6 +118,11 @@ class DeepvariantRunnerTest(unittest.TestCase):
         'gs://bucket/ref',
     ]
 
+  def _update_argv(self, bam_suffix, model_suffix, extend_auto_flags):
+    self._argv[self._argv.index('--bam') + 1] += bam_suffix
+    self._argv[self._argv.index('--model') + 1] += model_suffix
+    self._argv.extend(extend_auto_flags)
+
   @mock.patch('gcp_deepvariant_runner._run_job')
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
@@ -632,30 +637,14 @@ class DeepvariantRunnerTest(unittest.TestCase):
       gcp_deepvariant_runner.run(self._argv)
 
   def testRunFailsSetOptimizedFlagsMissingExpectedModel(self):
-    self._argv.extend(['--set_optimized_flags_based_on_bam_size'])
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX, '',
+                      ['--set_optimized_flags_based_on_bam_size'])
     with self.assertRaises(ValueError):
       gcp_deepvariant_runner.run(self._argv)
 
   def testRunFailsSetOptimizedFlagsMissingBamFile(self):
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
-        '--bam',
-        'gs://bucket/bam',
-        '--ref',
-        'gs://bucket/ref',
-        '--set_optimized_flags_based_on_bam_size',
-    ]
+    self._update_argv('', gcp_deepvariant_runner._WES_STANDARD,
+                      ['--set_optimized_flags_based_on_bam_size'])
     with self.assertRaises(ValueError):
       gcp_deepvariant_runner.run(self._argv)
 
@@ -672,29 +661,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 1
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'make_examples',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WES_STANDARD,
+                      ['--jobs_to_run',
+                       'make_examples',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
 
     expected_mock_calls = []
     for i in range(expected_workers):
@@ -726,30 +699,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 1
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'make_examples',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WES_STANDARD,
+                      ['--jobs_to_run',
+                       'make_examples',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -781,30 +737,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 1
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'make_examples',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'make_examples',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -836,30 +775,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 1
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'make_examples',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'make_examples',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -891,30 +813,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 1
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'make_examples',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'make_examples',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -947,30 +852,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 4
     expected_shards = 16  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'call_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WES_STANDARD,
+                      ['--jobs_to_run',
+                       'call_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -1005,30 +893,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 4
     expected_shards = 16  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WES_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'call_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WES_STANDARD,
+                      ['--jobs_to_run',
+                       'call_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -1063,30 +934,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 4
     expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'call_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'call_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -1107,7 +961,6 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.assert_has_calls(expected_mock_calls,)
     self.assertEqual(mock_apply_async.call_count, expected_workers)
 
-
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
   @mock.patch('gcp_deepvariant_runner._get_gcs_object_size')
@@ -1122,30 +975,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 4
     expected_shards = 64  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'call_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'call_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -1180,30 +1016,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 4
     expected_shards = 128  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'call_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
-
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'call_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     expected_mock_calls = []
     for i in range(expected_workers):
       expected_mock_calls.append(
@@ -1237,31 +1056,15 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 8
     expected_ram = 30 * 1024
     expected_gvcf_disk = gcp_deepvariant_runner._POSTPROCESS_VARIANTS_DISK_GVCF
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'postprocess_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-        '--gvcf_outfile',
-        'gvcf-folder-path',
-    ]
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'postprocess_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu',
+                       '--gvcf_outfile',
+                       'gvcf-folder-path'])
     gcp_deepvariant_runner.run(self._argv)
     mock_run_job.assert_called_once_with(
         _HasAllOf(
@@ -1288,29 +1091,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
     expected_cores = 8
     expected_ram = 30 * 1024
     expected_disk = 30
-    self._argv = [
-        '--project',
-        'project',
-        '--docker_image',
-        'gcr.io/dockerimage',
-        '--zones',
-        'zone-a',
-        '--outfile',
-        'gs://bucket/output.vcf',
-        '--staging',
-        'gs://bucket/staging',
-        '--model',
-        'gs://bucket/model' + gcp_deepvariant_runner._WGS_STANDARD,
-        '--bam',
-        'gs://bucket/bam' + gcp_deepvariant_runner._BAM_FILE_SUFFIX,
-        '--ref',
-        'gs://bucket/ref',
-        '--jobs_to_run',
-        'postprocess_variants',
-        '--set_optimized_flags_based_on_bam_size',
-        '--docker_image_gpu',
-        'gcr.io/dockerimage_gpu',
-    ]
+    self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
+                      gcp_deepvariant_runner._WGS_STANDARD,
+                      ['--jobs_to_run',
+                       'postprocess_variants',
+                       '--set_optimized_flags_based_on_bam_size',
+                       '--docker_image_gpu',
+                       'gcr.io/dockerimage_gpu'])
     gcp_deepvariant_runner.run(self._argv)
     mock_run_job.assert_called_once_with(
         _HasAllOf('postprocess_variants', 'gcr.io/dockerimage',
