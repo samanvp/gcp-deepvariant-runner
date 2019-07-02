@@ -26,18 +26,21 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-r"""Used to collect anonymous DeepVariant metrics."""
+"""Used to collect anonymous DeepVariant metrics."""
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import atexit
+import functools
 import json
 import logging
 import time
 import uuid
+
 import requests
+from typing import Dict, Optional
 
 _CLEARCUT_ENDPOINT = 'https://play.googleapis.com/log'
 _CLOUD_HCLS = 'CLOUD_HCLS'
@@ -51,6 +54,7 @@ _VIRTUAL_CHC_DEEPVARIANT = 'virtual.chc.deepvariant'
 def capture_exceptions(func):
   """Function decorator to capture and log any exceptions."""
 
+  @functools.wraps(func)
   def wrapper(*args, **kwds):
     try:
       return func(*args, **kwds)
@@ -65,12 +69,12 @@ class _ConcordEvent(object):
   """Encapsulates information representing a Concord event."""
 
   def __init__(self,
-               event_name,
-               event_type,
-               project_number,
-               console_type,
-               page_hostname,
-               event_metadata=None):
+               event_name: str,
+               event_type: str,
+               project_number: int,
+               console_type: str,
+               page_hostname: str,
+               event_metadata: Optional[Dict[str, str]] = None) -> None:
     self._event_name = event_name
     self._event_type = event_type
     self._project_number = project_number
@@ -91,27 +95,24 @@ class _ConcordEvent(object):
     return json.dumps(event_dict, **kwargs)
 
   def _event_metadata_as_kv(self):
-    # pylint:disable=g-complex-comprehension
-    return [{
-        'key': k,
-        'value': str(v)
-    } for k, v in sorted(self._event_metadata.items())]
+    kv_list = []
+    for k, v in sorted(self._event_metadata.items()):
+      kv_list.append({'key': k, 'value': str(v)})
+
+    return kv_list
 
 
 class _MetricsCollector(object):
-  """Singleton class that collects and submits metrics.
+  """A class that collects and submits metrics.
 
-    Instances of this class share the same internal state, and thus behave
-    the same all the time.
+  Instances of this class share the same internal state, and thus behave the
+  same all the time.
   """
   _shared_events = []
   _shared_session_identifier = uuid.uuid4().hex
 
-  def __init__(self):
-    self._events = self._shared_events
-    self._session_identifier = self._shared_session_identifier
-
-  def add_metrics(self, project_number, metrics_name, **metrics_kw):
+  def add_metrics(self, project_number: int,
+                  metrics_name: str, **metrics_kw: str) -> None:
     concord_event = _ConcordEvent(
         event_name=metrics_name,
         event_type=_DEEP_VARIANT_RUN,
@@ -119,7 +120,7 @@ class _MetricsCollector(object):
         console_type=_CLOUD_HCLS,
         page_hostname=_VIRTUAL_CHC_DEEPVARIANT,
         event_metadata={k: v for k, v in metrics_kw.items()})
-    self._events.append(concord_event)
+    self._shared_events.append(concord_event)
 
   def submit_metrics(self):
     """Submits all the collected metrics to Concord endpoint.
@@ -144,12 +145,12 @@ class _MetricsCollector(object):
         'log_source_name':
             _CONCORD,
         'zwieback_cookie':
-            self._session_identifier,
+            self._shared_session_identifier,
         'request_time_ms':
             _now_ms(),
         'log_event': [{
             'source_extension_json': e.to_json(sort_keys=True)
-        } for e in self._events]
+        } for e in self._shared_events]
     }
 
 
@@ -158,7 +159,7 @@ def _now_ms():
   return int(round(time.time() * 1000))
 
 
-def add(project_number, metrics_name, **metrics_kw):
+def add(project_number: int, metrics_name: str, **metrics_kw: str) -> None:
   """Adds the given metric to the metrics to be submitted to Concord.
 
   Note: All metrics are submitted at exit.

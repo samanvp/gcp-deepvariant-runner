@@ -56,7 +56,7 @@ class MetricsCollectorTest(unittest.TestCase):
   def _clear_metrics_collector(self):
     # 'metrics_collector' is a singleton. Remove any shared state before
     # starting next test.
-    MetricsCollector()._events[:] = []
+    MetricsCollector()._shared_events[:] = []
 
   @mock.patch('requests.post')
   @mock.patch('time.time', return_value=1234)
