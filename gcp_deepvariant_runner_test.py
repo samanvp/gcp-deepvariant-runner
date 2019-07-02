@@ -102,7 +102,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
         '--project',
         'project',
         '--docker_image',
-        'gcr.io/dockerimage',
+        'gcr.io/dockerimage:tag',
         '--zones',
         'zone-a',
         'zone-b',
@@ -111,7 +111,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
         '--staging',
         'gs://bucket/staging',
         '--model',
-        'gs://bucket/model',
+        'gs://bucket/model/version_type',
         '--bam',
         'gs://bucket/bam',
         '--ref',
@@ -122,19 +122,21 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunPipeline(self, mock_can_write_to_bucket, mock_obj_exist, mock_pool,
-                      mock_run_job):
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunPipeline(self, mock_get_project_number, mock_can_write_to_bucket,
+                      mock_obj_exist, mock_pool, mock_run_job):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend(
         ['--make_examples_workers', '1', '--call_variants_workers', '1'])
     gcp_deepvariant_runner.run(self._argv)
 
     mock_apply_async.assert_has_calls([
         mock.call(mock_run_job, [
-            _HasAllOf('make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('make_examples', 'gcr.io/dockerimage:tag',
                       'INPUT_BAM=gs://bucket/bam',
                       'INPUT_BAI=gs://bucket/bam.bai',
                       'INPUT_REF=gs://bucket/ref',
@@ -144,8 +146,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/0'
         ]),
         mock.call(mock_run_job, [
-            _HasAllOf('call_variants', 'gcr.io/dockerimage',
-                      'MODEL=gs://bucket/model',
+            _HasAllOf('call_variants', 'gcr.io/dockerimage:tag',
+                      'MODEL=gs://bucket/model/version_type',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
                       '--output-interval', '60s'),
@@ -155,7 +157,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, 2)
 
     mock_run_job.assert_called_once_with(
-        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage',
+        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage:tag',
                   'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
                   'OUTFILE=gs://bucket/output.vcf', '--output-interval', '60s'),
         'gs://bucket/staging/logs/postprocess_variants')
@@ -164,12 +166,15 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunPipeline_WithGVCFOutFile(self, mock_can_write_to_bucket,
-                                      mock_obj_exist, mock_pool, mock_run_job):
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunPipeline_WithGVCFOutFile(self, mock_get_project_number,
+                                      mock_can_write_to_bucket, mock_obj_exist,
+                                      mock_pool, mock_run_job):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--make_examples_workers',
         '1',
@@ -184,7 +189,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_apply_async.assert_has_calls([
         mock.call(mock_run_job, [
-            _HasAllOf('make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('make_examples', 'gcr.io/dockerimage:tag',
                       'INPUT_BAM=gs://bucket/bam',
                       'INPUT_BAI=gs://bucket/bam.bai',
                       'INPUT_REF=gs://bucket/ref',
@@ -194,8 +199,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/0'
         ]),
         mock.call(mock_run_job, [
-            _HasAllOf('call_variants', 'gcr.io/dockerimage',
-                      'MODEL=gs://bucket/model',
+            _HasAllOf('call_variants', 'gcr.io/dockerimage:tag',
+                      'MODEL=gs://bucket/model/version_type',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'CALLED_VARIANTS=gs://bucket/staging/called_variants/*'),
             'gs://bucket/staging/logs/call_variants/0'
@@ -204,7 +209,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     self.assertEqual(mock_apply_async.call_count, 2)
 
     mock_run_job.assert_called_once_with(
-        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage',
+        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage:tag',
                   'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
                   'OUTFILE=gs://bucket/output.vcf',
                   'GVCF=gs://bucket/staging/gvcf/*',
@@ -214,12 +219,14 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunMakeExamples(self, mock_can_write_to_bucket, mock_obj_exist,
-                          mock_pool):
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunMakeExamples(self, mock_get_project_number,
+                          mock_can_write_to_bucket, mock_obj_exist, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--jobs_to_run',
         'make_examples',
@@ -250,7 +257,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     # Verifying Pipeline's API commands
     mock_apply_async.assert_has_calls([
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'INPUT_BAM=gs://bucket/bam', 'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -260,7 +267,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/0'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'INPUT_BAM=gs://bucket/bam', 'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -270,7 +277,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/1'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'INPUT_BAM=gs://bucket/bam', 'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -301,7 +308,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
            ['-c', expected_command],
            'entrypoint': 'bash',
            'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/dockerimage'}]
+           'imageUri': 'gcr.io/dockerimage:tag'}]
       self.assertEqual(len(expected_actions_list), len(recieved_actions_list))
       for i in range(len(expected_actions_list)):
         self.assertEqual(sorted(expected_actions_list[i].items()),
@@ -310,12 +317,15 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunMakeExamples_WithGcsfuse(self, mock_can_write_to_bucket,
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunMakeExamples_WithGcsfuse(self, mock_get_project_number,
+                                      mock_can_write_to_bucket,
                                       mock_obj_exist, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--jobs_to_run',
         'make_examples',
@@ -343,7 +353,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
     # Verifying Pipeline's API commands
     mock_apply_async.assert_has_calls([
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -351,7 +361,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/0'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/0/*',
                       'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -359,7 +369,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/1'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/1/*',
                       'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -367,7 +377,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
             'gs://bucket/staging/logs/make_examples/2'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage',
+            _HasAllOf('prefix_make_examples', 'gcr.io/dockerimage:tag',
                       'EXAMPLES=gs://bucket/staging/examples/1/*',
                       'INPUT_REF=gs://bucket/ref',
                       'INPUT_BAI=gs://bucket/bam.bai',
@@ -418,7 +428,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
            ['-c', expected_command],
            'entrypoint': 'bash',
            'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/dockerimage'})
+           'imageUri': 'gcr.io/dockerimage:tag'})
       self.assertEqual(len(expected_actions_list), len(recieved_actions_list))
       for i in range(len(expected_actions_list)):
         self.assertEqual(sorted(expected_actions_list[i].items()),
@@ -427,12 +437,14 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunCallVariants(self, mock_can_write_to_bucket, mock_obj_exist,
-                          mock_pool):
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunCallVariants(self, mock_get_project_number,
+                          mock_can_write_to_bucket, mock_obj_exist, mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--make_examples_workers',
         '3',
@@ -449,17 +461,20 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_apply_async.assert_has_calls([
         mock.call(mock.ANY, [
-            _HasAllOf('call_variants', 'gcr.io/dockerimage',
+            _HasAllOf('call_variants', 'gcr.io/dockerimage:tag',
+                      '--attempts', '2', '--pvm-attempts', '0',
                       'CALL_VARIANTS_SHARD_INDEX=0'),
             'gs://bucket/staging/logs/call_variants/0'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('call_variants', 'gcr.io/dockerimage',
+            _HasAllOf('call_variants', 'gcr.io/dockerimage:tag',
+                      '--attempts', '2', '--pvm-attempts', '0',
                       'CALL_VARIANTS_SHARD_INDEX=1'),
             'gs://bucket/staging/logs/call_variants/1'
         ]),
         mock.call(mock.ANY, [
-            _HasAllOf('call_variants', 'gcr.io/dockerimage',
+            _HasAllOf('call_variants', 'gcr.io/dockerimage:tag',
+                      '--attempts', '2', '--pvm-attempts', '0',
                       'CALL_VARIANTS_SHARD_INDEX=2'),
             'gs://bucket/staging/logs/call_variants/2'
         ]),
@@ -469,12 +484,15 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(multiprocessing, 'Pool')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunCallVariants_GPU(self, mock_can_write_to_bucket, mock_obj_exist,
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunCallVariants_GPU(self, mock_get_project_number,
+                              mock_can_write_to_bucket, mock_obj_exist,
                               mock_pool):
     mock_apply_async = mock_pool.return_value.apply_async
     mock_apply_async.return_value = None
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--make_examples_workers',
         '3',
@@ -516,11 +534,14 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch.object(gke_cluster.GkeCluster, '_cluster_exists')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunCallVariants_TPU(self, mock_can_write_to_bucket, mock_obj_exist,
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunCallVariants_TPU(self, mock_get_project_number,
+                              mock_can_write_to_bucket, mock_obj_exist,
                               mock_cluster_exists, mock_deploy_pod, mock_init):
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
     mock_cluster_exists.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--jobs_to_run',
         'call_variants',
@@ -534,7 +555,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
         '--gke_cluster_zone',
         'us-central1-c',
         '--docker_image',
-        'gcr.io/dockerimage',
+        'gcr.io/dockerimage:tag',
     ])
     gcp_deepvariant_runner.run(self._argv)
     mock_init.assert_has_calls([
@@ -564,7 +585,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
         '--gke_cluster_zone',
         'us-central1-c',
         '--docker_image',
-        'gcr.io/dockerimage',
+        'gcr.io/dockerimage:tag',
     ])
     with self.assertRaises(ValueError):
       gcp_deepvariant_runner.run(self._argv)
@@ -572,10 +593,13 @@ class DeepvariantRunnerTest(unittest.TestCase):
   @mock.patch('gcp_deepvariant_runner._run_job')
   @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
   @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
-  def testRunPostProcessVariants(self, mock_can_write_to_bucket, mock_obj_exist,
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  def testRunPostProcessVariants(self, mock_get_project_number,
+                                 mock_can_write_to_bucket, mock_obj_exist,
                                  mock_run_job):
     mock_obj_exist.return_value = True
     mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
     self._argv.extend([
         '--jobs_to_run',
         'postprocess_variants',
@@ -589,12 +613,74 @@ class DeepvariantRunnerTest(unittest.TestCase):
     ])
     gcp_deepvariant_runner.run(self._argv)
     mock_run_job.assert_called_once_with(
-        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage',
+        _HasAllOf('postprocess_variants', 'gcr.io/dockerimage:tag',
                   'CALLED_VARIANTS=gs://bucket/staging/called_variants/*',
                   'INPUT_REF=gs://bucket/ref', 'SHARDS=15',
                   'CALL_VARIANTS_SHARDS=1', 'INPUT_REF_FAI=gs://bucket/ref.fai',
                   'OUTFILE=gs://bucket/output.vcf'),
         'gs://bucket/staging/logs/postprocess_variants')
+
+  @mock.patch('gcp_deepvariant_runner._run_job')
+  @mock.patch.object(multiprocessing, 'Pool')
+  @mock.patch('gcp_deepvariant_runner._gcs_object_exist')
+  @mock.patch('gcp_deepvariant_runner._can_write_to_bucket')
+  @mock.patch('gcp_deepvariant_runner._get_project_number')
+  @mock.patch('metrics.add')
+  def testRunPipeline_Metrics(self, mock_metrics_add, mock_get_project_number,
+                              mock_can_write_to_bucket, mock_obj_exist,
+                              mock_pool, unused_mock_run_job):
+    mock_apply_async = mock_pool.return_value.apply_async
+    mock_apply_async.return_value = None
+    mock_obj_exist.return_value = True
+    mock_can_write_to_bucket.return_value = True
+    mock_get_project_number.return_value = 1000
+    self._argv.extend([
+        '--make_examples_workers', '2', '--make_examples_cores_per_worker', '8',
+        '--make_examples_ram_per_worker_gb', '32',
+        '--call_variants_workers', '1', '--call_variants_cores_per_worker', '2',
+        '--call_variants_ram_per_worker_gb', '8',
+        '--postprocess_variants_cores', '4',
+        '--postprocess_variants_ram_gb', '16',
+        '--shards', '16', '--gcsfuse',
+        '--regions', 'gs://bucket/region-1.bed', 'chr1:10-20', 'chr2:1-2',
+        '--gvcf_outfile', 'gvcf-folder-path',
+        '--gpu', '--docker_image_gpu', 'gcr.io/dockerimage_gpu',
+        '--max_non_preemptible_tries', '1', '--max_preemptible_tries', '2'
+    ])
+
+    gcp_deepvariant_runner.run(self._argv)
+    metrics_calls = [
+        mock.call(
+            1000,
+            'Start',
+            accelerator_type='nvidia-tesla-k80',
+            call_variants_cores_per_worker=2,
+            call_variants_ram_per_worker_gb=8,
+            call_variants_workers=1,
+            existing_gke_cluster=False,
+            gcsfuse=True,
+            genomic_regions=3,
+            gpu=True,
+            gvcf=True,
+            image_version='tag',
+            jobs_to_run=[
+                'make_examples', 'call_variants', 'postprocess_variants'],
+            make_examples_cores_per_worker=8,
+            make_examples_ram_per_worker_gb=32,
+            make_examples_workers=2,
+            max_non_preemptible_tries=1,
+            max_preemptible_tries=2,
+            model_version='version_type',
+            postprocess_variants_cores=4,
+            postprocess_variants_ram_gb=16,
+            preemptible=False,
+            shards=16,
+            tpu=False),
+        mock.call(1000, 'MakeExamples_Success', duration_seconds=0),
+        mock.call(1000, 'CallVariants_Success', duration_seconds=0),
+        mock.call(1000, 'PostprocessVariants_Success', duration_seconds=0)
+    ]
+    mock_metrics_add.assert_has_calls(metrics_calls)
 
   @mock.patch.object(storage.bucket.Bucket, 'test_iam_permissions')
   def testRunFailsMissingInput(self, mock_bucket_iam):

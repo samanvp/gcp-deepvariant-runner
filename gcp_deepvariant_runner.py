@@ -52,6 +52,7 @@ from __future__ import print_function
 
 import argparse
 import datetime
+import functools
 import json
 import logging
 import multiprocessing
@@ -64,6 +65,8 @@ import urllib
 import uuid
 
 import gke_cluster
+import metrics
+import process_util
 from google.api_core import exceptions as google_exceptions
 from google.cloud import storage
 
@@ -80,6 +83,12 @@ _CALL_VARIANTS_JOB_NAME = 'call_variants'
 _POSTPROCESS_VARIANTS_JOB_NAME = 'postprocess_variants'
 _DEFAULT_BOOT_DISK_SIZE_GB = '50'
 _ROLE_STORAGE_OBJ_CREATOR = ['storage.objects.create']
+
+# Metrics name.
+_MAKE_EXAMPLES = 'MakeExamples'
+_CALL_VARIANTS = 'CallVariants'
+_POSTPROCESS_VARIANTS = 'PostprocessVariants'
+_START = 'Start'
 
 _GCSFUSE_IMAGE = 'gcr.io/cloud-genomics-pipelines/gcsfuse'
 _GCSFUSE_LOCAL_DIR_TEMPLATE = '/mnt/google/input-gcsfused-{SHARD_INDEX}/'
@@ -273,6 +282,56 @@ def _write_actions_to_temp_file(actions):
   return temp_file.name
 
 
+def _get_project_number(project_id):
+  """Returns GCP project number (-1 on failure)."""
+  if hasattr(_get_project_number,
+             'project_number') and _get_project_number.project_number != -1:
+    return _get_project_number.project_number
+  try:
+    args = [
+        'gcloud', 'projects', 'describe', project_id,
+        '--format=value(projectNumber)'
+    ]
+    _get_project_number.project_number = process_util.run_command(
+        args, retries=2)
+  except RuntimeError:
+    # Error is already logged.
+    _get_project_number.project_number = -1
+  return _get_project_number.project_number
+
+
+def report_runtime_metrics(method_name):
+  """Decorator that reports runtime metrics."""
+
+  def decorated(func):
+    """Pseudo decorator."""
+    @functools.wraps(func)
+    def wrapper(pipeline_args, *args, **kwargs):
+      """Wrapper that measures time elapsed, and reports it.
+
+      if stop_collecting_anonymous_usage_metrics is set it only calls the method
+      without collecting any metrics.
+      """
+      if pipeline_args.stop_collecting_anonymous_usage_metrics:
+        func(pipeline_args, *args, **kwargs)
+      else:
+        success = False
+        start = time.time()
+        try:
+          func(pipeline_args, *args, **kwargs)
+          success = True
+        finally:
+          metrics_name = method_name + ('_Success' if success else '_Failure')
+          metrics.add(
+              _get_project_number(pipeline_args.project),
+              metrics_name,
+              duration_seconds=int(time.time() - start))
+
+    return wrapper
+
+  return decorated
+
+
 def _run_job(run_args, log_path):
   """Runs a job using the pipelines CLI tool.
 
@@ -386,6 +445,7 @@ def _meets_gcp_label_restrictions(label):
                   label) is not None
 
 
+@report_runtime_metrics(method_name=_MAKE_EXAMPLES)
 def _run_make_examples(pipeline_args):
   """Runs the make_examples job."""
 
@@ -612,6 +672,7 @@ def _run_call_variants_with_pipelines_api(pipeline_args):
   _wait_for_results(threads, results)
 
 
+@report_runtime_metrics(method_name=_CALL_VARIANTS)
 def _run_call_variants(pipeline_args):
   """Runs the call_variants job."""
   if pipeline_args.tpu:
@@ -620,6 +681,7 @@ def _run_call_variants(pipeline_args):
     _run_call_variants_with_pipelines_api(pipeline_args)
 
 
+@report_runtime_metrics(method_name=_POSTPROCESS_VARIANTS)
 def _run_postprocess_variants(pipeline_args):
   """Runs the postprocess_variants job."""
 
@@ -1040,9 +1102,56 @@ def run(argv=None):
             'jobs. By default, the pipeline runs all 3 jobs (make_examples, '
             'call_variants, postprocess_variants) in sequence. '
             'This option may be used to run parts of the pipeline.'))
+  parser.add_argument(
+      '--stop_collecting_anonymous_usage_metrics',
+      default=False,
+      action='store_true',
+      help=('Use preemptible VMs for the pipeline.'))
 
   pipeline_args = parser.parse_args(argv)
   _validate_and_complete_args(pipeline_args)
+
+  def get_image_version(docker_image):
+    return docker_image.split(':')[-1]
+
+  def get_model_version(model):
+    return model.split('/')[-1]
+
+  if not pipeline_args.stop_collecting_anonymous_usage_metrics:
+    metrics.add(
+        _get_project_number(pipeline_args.project),
+        _START,
+        # General run related settings.
+        image_version=get_image_version(pipeline_args.docker_image),
+        model_version=get_model_version(pipeline_args.model),
+        genomic_regions=(
+            len(pipeline_args.regions) if pipeline_args.regions else 0),
+        shards=pipeline_args.shards,
+        jobs_to_run=pipeline_args.jobs_to_run,
+        gvcf=True if pipeline_args.gvcf_outfile else False,
+        max_non_preemptible_tries=pipeline_args.max_non_preemptible_tries,
+        max_preemptible_tries=pipeline_args.max_preemptible_tries,
+        preemptible=pipeline_args.preemptible,
+        # Make_examples stage related settings.
+        gcsfuse=pipeline_args.gcsfuse,
+        make_examples_workers=pipeline_args.make_examples_workers,
+        make_examples_cores_per_worker=(
+            pipeline_args.make_examples_cores_per_worker),
+        make_examples_ram_per_worker_gb=(
+            pipeline_args.make_examples_ram_per_worker_gb),
+        # Call_variants stage related settings.
+        gpu=pipeline_args.gpu,
+        accelerator_type=pipeline_args.accelerator_type,
+        tpu=pipeline_args.tpu,
+        existing_gke_cluster=True if pipeline_args.gke_cluster_name else False,
+        call_variants_workers=pipeline_args.call_variants_workers,
+        call_variants_cores_per_worker=(
+            pipeline_args.call_variants_cores_per_worker),
+        call_variants_ram_per_worker_gb=(
+            pipeline_args.call_variants_ram_per_worker_gb),
+        # Postprocess stage related settings.
+        postprocess_variants_cores=pipeline_args.postprocess_variants_cores,
+        postprocess_variants_ram_gb=pipeline_args.postprocess_variants_ram_gb)
 
   # TODO(b/112148076): Fail fast: validate GKE cluster early on in the pipeline.
   if _MAKE_EXAMPLES_JOB_NAME in pipeline_args.jobs_to_run:
