@@ -40,7 +40,7 @@ import time
 import uuid
 
 import requests
-from typing import Dict, Optional
+from typing import Dict, Optional, Text
 
 _CLEARCUT_ENDPOINT = 'https://play.googleapis.com/log'
 _CLOUD_HCLS = 'CLOUD_HCLS'
@@ -69,12 +69,12 @@ class _ConcordEvent(object):
   """Encapsulates information representing a Concord event."""
 
   def __init__(self,
-               event_name: str,
-               event_type: str,
+               event_name: Text,
+               event_type: Text,
                project_number: int,
-               console_type: str,
-               page_hostname: str,
-               event_metadata: Optional[Dict[str, str]] = None) -> None:
+               console_type: Text,
+               page_hostname: Text,
+               event_metadata: Optional[Dict[Text, Text]] = None) -> None:
     self._event_name = event_name
     self._event_type = event_type
     self._project_number = project_number
@@ -108,11 +108,11 @@ class _MetricsCollector(object):
   Instances of this class share the same internal state, and thus behave the
   same all the time.
   """
-  _shared_events = []
-  _shared_session_identifier = uuid.uuid4().hex
+  _events = []
+  _session_identifier = uuid.uuid4().hex
 
   def add_metrics(self, project_number: int,
-                  metrics_name: str, **metrics_kw: str) -> None:
+                  metrics_name: Text, **metrics_kw: Text) -> None:
     concord_event = _ConcordEvent(
         event_name=metrics_name,
         event_type=_DEEP_VARIANT_RUN,
@@ -120,7 +120,7 @@ class _MetricsCollector(object):
         console_type=_CLOUD_HCLS,
         page_hostname=_VIRTUAL_CHC_DEEPVARIANT,
         event_metadata={k: v for k, v in metrics_kw.items()})
-    self._shared_events.append(concord_event)
+    self._events.append(concord_event)
 
   def submit_metrics(self):
     """Submits all the collected metrics to Concord endpoint.
@@ -145,12 +145,12 @@ class _MetricsCollector(object):
         'log_source_name':
             _CONCORD,
         'zwieback_cookie':
-            self._shared_session_identifier,
+            self._session_identifier,
         'request_time_ms':
             _now_ms(),
         'log_event': [{
             'source_extension_json': e.to_json(sort_keys=True)
-        } for e in self._shared_events]
+        } for e in self._events]
     }
 
 
@@ -159,7 +159,7 @@ def _now_ms():
   return int(round(time.time() * 1000))
 
 
-def add(project_number: int, metrics_name: str, **metrics_kw: str) -> None:
+def add(project_number: int, metrics_name: Text, **metrics_kw: Text) -> None:
   """Adds the given metric to the metrics to be submitted to Concord.
 
   Note: All metrics are submitted at exit.

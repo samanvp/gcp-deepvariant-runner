@@ -42,41 +42,38 @@ from __future__ import print_function
 
 import json
 import unittest
-from metrics import _CLEARCUT_ENDPOINT as CLEARCUT_ENDPOINT
-from metrics import _MetricsCollector as MetricsCollector
+
+import metrics
 import mock
 
 
 # This is to test if all metrics collector instances share same session
-# identifier. Mocks '_shared_session_identifier' on import.
-@mock.patch('metrics._MetricsCollector._shared_session_identifier', 'abcd')
+# identifier. Mocks '_session_identifier' on import.
+@mock.patch('metrics._MetricsCollector._session_identifier', 'abcd')
 class MetricsCollectorTest(unittest.TestCase):
   """Tests for MetricsCollector class."""
 
-  def _clear_metrics_collector(self):
-    # 'metrics_collector' is a singleton. Remove any shared state before
-    # starting next test.
-    MetricsCollector()._shared_events[:] = []
+  def setUp(self):
+    super(MetricsCollectorTest, self).setUp()
+    # 'metrics_collector' has class attributes, clear them before each test.
+    metrics._MetricsCollector()._events[:] = []
 
   @mock.patch('requests.post')
   @mock.patch('time.time', return_value=1234)
   def test_submit_metrics(self, unused_mock_time, mock_requests_post):
-    self._clear_metrics_collector()
-    metrics_collector = MetricsCollector()
-
-    metrics_collector.add_metrics(
+    metrics.add(
         123,
         'test-metrics-1',
         attribute_1=1,
         attribute_2='string-1',
         attribute_3=True)
-    metrics_collector.add_metrics(
+    metrics.add(
         123,
         'test-metrics-2',
         attribute_1=2,
         attribute_2='string-2',
         attribute_3=True)
-    metrics_collector.submit_metrics()
+    metrics._MetricsCollector().submit_metrics()
 
     mock_requests_post.assert_called_with(
         data=json.dumps(
@@ -138,52 +135,69 @@ class MetricsCollectorTest(unittest.TestCase):
             sort_keys=True),
         headers=None,
         timeout=10,
-        url=CLEARCUT_ENDPOINT)
+        url=metrics._CLEARCUT_ENDPOINT)
 
   @mock.patch('requests.post')
   @mock.patch('time.time', side_effect=(1234, 1235))
   def test_two_metrics_collector(self, unused_mock_time, mock_requests_post):
-    self._clear_metrics_collector()
-    first_metric_collector = MetricsCollector()
-    second_metric_collector = MetricsCollector()
+    first_metric_collector = metrics._MetricsCollector()
+    second_metric_collector = metrics._MetricsCollector()
 
     first_metric_collector.add_metrics(123, 'test-metrics-1', attribute_1=1)
     second_metric_collector.add_metrics(123, 'test-metrics-2', attribute_2=2)
+    metrics.add(123, 'test-metrics-3', attribute_3=3)
 
     def expected_post_data(request_time_ms):
       template = {
           'zwieback_cookie': 'abcd',
           'log_source_name': 'CONCORD',
-          'log_event': [{
-              'source_extension_json':
-                  json.dumps({
-                      'console_type': 'CLOUD_HCLS',
-                      'event_metadata': [{
-                          'key': 'attribute_1',
-                          'value': '1'
-                      }],
-                      'event_name': 'test-metrics-1',
-                      'event_type': 'DeepVariantRun',
-                      'page_hostname': 'virtual.chc.deepvariant',
-                      'project_number': 123
-                  },
-                             sort_keys=True)
-          },
-                        {
-                            'source_extension_json':
-                                json.dumps({
-                                    'console_type': 'CLOUD_HCLS',
-                                    'event_metadata': [{
-                                        'key': 'attribute_2',
-                                        'value': '2'
-                                    }],
-                                    'event_name': 'test-metrics-2',
-                                    'event_type': 'DeepVariantRun',
-                                    'page_hostname': 'virtual.chc.deepvariant',
-                                    'project_number': 123
-                                },
-                                           sort_keys=True)
-                        }],
+          'log_event': [
+              {
+                  'source_extension_json':
+                      json.dumps({
+                          'console_type': 'CLOUD_HCLS',
+                          'event_metadata': [{
+                              'key': 'attribute_1',
+                              'value': '1'
+                          }],
+                          'event_name': 'test-metrics-1',
+                          'event_type': 'DeepVariantRun',
+                          'page_hostname': 'virtual.chc.deepvariant',
+                          'project_number': 123
+                      },
+                                 sort_keys=True)
+              },
+              {
+                  'source_extension_json':
+                      json.dumps({
+                          'console_type': 'CLOUD_HCLS',
+                          'event_metadata': [{
+                              'key': 'attribute_2',
+                              'value': '2'
+                          }],
+                          'event_name': 'test-metrics-2',
+                          'event_type': 'DeepVariantRun',
+                          'page_hostname': 'virtual.chc.deepvariant',
+                          'project_number': 123
+                      },
+                                 sort_keys=True)
+              },
+              {
+                  'source_extension_json':
+                      json.dumps({
+                          'console_type': 'CLOUD_HCLS',
+                          'event_metadata': [{
+                              'key': 'attribute_3',
+                              'value': '3'
+                          }],
+                          'event_name': 'test-metrics-3',
+                          'event_type': 'DeepVariantRun',
+                          'page_hostname': 'virtual.chc.deepvariant',
+                          'project_number': 123
+                      },
+                                 sort_keys=True)
+              }
+          ],
           'client_info': {
               'client_type': 'PYTHON'
           }
@@ -196,14 +210,14 @@ class MetricsCollectorTest(unittest.TestCase):
         data=expected_post_data(1234000),
         headers=None,
         timeout=10,
-        url=CLEARCUT_ENDPOINT)
+        url=metrics._CLEARCUT_ENDPOINT)
 
     second_metric_collector.submit_metrics()
     mock_requests_post.assert_called_with(
         data=expected_post_data(1235000),
         headers=None,
         timeout=10,
-        url=CLEARCUT_ENDPOINT)
+        url=metrics._CLEARCUT_ENDPOINT)
 
 
 if __name__ == '__main__':
