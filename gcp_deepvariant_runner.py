@@ -185,35 +185,35 @@ _DEFAULT_FLAGS[BamCategories.WES_SMALL] = {
     'make_examples_workers': 16,
     'make_examples_cores_per_worker': 1,
     'call_variants_workers': 1,
-    'call_variants_cores_per_worker': 4,
+    'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WES_LARGE] = {
     'make_examples_workers': 16,
     'make_examples_cores_per_worker': 1,
     'call_variants_workers': 2,
-    'call_variants_cores_per_worker': 4,
+    'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_SMALL] = {
     'make_examples_workers': 32,
     'make_examples_cores_per_worker': 1,
     'call_variants_workers': 2,
-    'call_variants_cores_per_worker': 4,
+    'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_MEDIUM] = {
     'make_examples_workers': 64,
     'make_examples_cores_per_worker': 1,
     'call_variants_workers': 4,
-    'call_variants_cores_per_worker': 4,
+    'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_LARGE] = {
     'make_examples_workers': 128,
     'make_examples_cores_per_worker': 1,
     'call_variants_workers': 8,
-    'call_variants_cores_per_worker': 4,
+    'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 # Common computational flag values across all BAM categories.
@@ -510,7 +510,10 @@ def _set_computational_flags_based_on_bam_size(pipeline_args):
   else:
     raise ValueError('Either gpu or tpu is needed for default flag settings.')
   # Following flags are independent of BAM file category.
+  pipeline_args.gcsfuse = True
   pipeline_args.preemptible = True
+  pipeline_args.max_preemptible_tries=2
+  pipeline_args.max_non_preemptible_tries=1
   if pipeline_args.gvcf_outfile:
     pipeline_args.postprocess_variants_disk_gb = _POSTPROCESS_VARIANTS_DISK_GVCF
 
@@ -1158,12 +1161,12 @@ def run(argv=None):
   parser.add_argument(
       '--postprocess_variants_cores',
       type=int,
-      default=8,
+      default=4,
       help='Number of cores to use for postprocess_variants.')
   parser.add_argument(
       '--postprocess_variants_ram_gb',
       type=int,
-      default=30,
+      default=16,
       help='RAM (in GB) to use for postprocess_variants.')
   parser.add_argument(
       '--postprocess_variants_disk_gb',
