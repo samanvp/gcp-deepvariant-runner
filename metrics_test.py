@@ -87,22 +87,24 @@ class MetricsCollectorTest(unittest.TestCase):
                             json.dumps(
                                 {
                                     'console_type': 'CLOUD_HCLS',
-                                    'event_metadata': [{
-                                        'key': 'attribute_1',
-                                        'value': '1'
-                                    },
-                                                       {
-                                                           'key': 'attribute_2',
-                                                           'value': 'string-1'
-                                                       },
-                                                       {
-                                                           'key': 'attribute_3',
-                                                           'value': 'True'
-                                                       }],
+                                    'event_metadata': [
+                                        {
+                                            'key': 'attribute_1',
+                                            'value': '1'
+                                        },
+                                        {
+                                            'key': 'attribute_2',
+                                            'value': 'string-1'
+                                        },
+                                        {
+                                            'key': 'attribute_3',
+                                            'value': 'True'
+                                        }
+                                    ],
                                     'event_name': 'test-metrics-1',
                                     'event_type': 'DeepVariantRun',
-                                    'page_hostname': 'virtual.chc.deepvariant',
-                                    'project_number': 123
+                                    'page_hostname': 'virtual.hcls.deepvariant',
+                                    'project_number': '123'
                                 },
                                 sort_keys=True)
                     },
@@ -110,20 +112,24 @@ class MetricsCollectorTest(unittest.TestCase):
                         'source_extension_json':
                             json.dumps({
                                 'console_type': 'CLOUD_HCLS',
-                                'event_metadata': [{
-                                    'key': 'attribute_1',
-                                    'value': '2'
-                                }, {
-                                    'key': 'attribute_2',
-                                    'value': 'string-2'
-                                }, {
-                                    'key': 'attribute_3',
-                                    'value': 'True'
-                                }],
+                                'event_metadata': [
+                                    {
+                                        'key': 'attribute_1',
+                                        'value': '2'
+                                    },
+                                    {
+                                        'key': 'attribute_2',
+                                        'value': 'string-2'
+                                    },
+                                    {
+                                        'key': 'attribute_3',
+                                        'value': 'True'
+                                    }
+                                ],
                                 'event_name': 'test-metrics-2',
                                 'event_type': 'DeepVariantRun',
-                                'page_hostname': 'virtual.chc.deepvariant',
-                                'project_number': 123
+                                'page_hostname': 'virtual.hcls.deepvariant',
+                                'project_number': '123'
                             },
                                        sort_keys=True)
                     }
@@ -162,8 +168,8 @@ class MetricsCollectorTest(unittest.TestCase):
                           }],
                           'event_name': 'test-metrics-1',
                           'event_type': 'DeepVariantRun',
-                          'page_hostname': 'virtual.chc.deepvariant',
-                          'project_number': 123
+                          'page_hostname': 'virtual.hcls.deepvariant',
+                          'project_number': '123'
                       },
                                  sort_keys=True)
               },
@@ -177,8 +183,8 @@ class MetricsCollectorTest(unittest.TestCase):
                           }],
                           'event_name': 'test-metrics-2',
                           'event_type': 'DeepVariantRun',
-                          'page_hostname': 'virtual.chc.deepvariant',
-                          'project_number': 123
+                          'page_hostname': 'virtual.hcls.deepvariant',
+                          'project_number': '123'
                       },
                                  sort_keys=True)
               },
@@ -192,8 +198,8 @@ class MetricsCollectorTest(unittest.TestCase):
                           }],
                           'event_name': 'test-metrics-3',
                           'event_type': 'DeepVariantRun',
-                          'page_hostname': 'virtual.chc.deepvariant',
-                          'project_number': 123
+                          'page_hostname': 'virtual.hcls.deepvariant',
+                          'project_number': '123'
                       },
                                  sort_keys=True)
               }

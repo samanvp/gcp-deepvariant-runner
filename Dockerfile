@@ -30,6 +30,7 @@ RUN curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-releas
 ADD LICENSE /
 ADD gcp_deepvariant_runner.py /opt/deepvariant_runner/src/
 ADD gke_cluster.py /opt/deepvariant_runner/src/
+ADD metrics.py /opt/deepvariant_runner/src/
 ADD process_util.py /opt/deepvariant_runner/src/
 ADD run_and_verify.sh /opt/deepvariant_runner/bin/
 ADD cancel /opt/deepvariant_runner/bin/

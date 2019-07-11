@@ -48,7 +48,7 @@ _CONCORD = 'CONCORD'
 _DEEP_VARIANT_RUN = 'DeepVariantRun'
 _HTTP_REQUEST_TIMEOUT_SEC = 10
 _PYTHON = 'PYTHON'
-_VIRTUAL_CHC_DEEPVARIANT = 'virtual.chc.deepvariant'
+_VIRTUAL_HCLS_DEEPVARIANT = 'virtual.hcls.deepvariant'
 
 
 def capture_exceptions(func):
@@ -85,7 +85,7 @@ class _ConcordEvent(object):
   def to_json(self, **kwargs):
     """Encodes data in json."""
     event_dict = {
-        'project_number': self._project_number,
+        'project_number': str(self._project_number),
         'event_name': self._event_name,
         'event_type': self._event_type,
         'console_type': self._console_type,
@@ -118,7 +118,7 @@ class _MetricsCollector(object):
         event_type=_DEEP_VARIANT_RUN,
         project_number=project_number,
         console_type=_CLOUD_HCLS,
-        page_hostname=_VIRTUAL_CHC_DEEPVARIANT,
+        page_hostname=_VIRTUAL_HCLS_DEEPVARIANT,
         event_metadata={k: v for k, v in metrics_kw.items()})
     self._events.append(concord_event)
 
