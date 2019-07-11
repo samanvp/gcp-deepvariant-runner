@@ -512,8 +512,9 @@ def _set_computational_flags_based_on_bam_size(pipeline_args):
   # Following flags are independent of BAM file category.
   pipeline_args.gcsfuse = True
   pipeline_args.preemptible = True
-  pipeline_args.max_preemptible_tries=2
-  pipeline_args.max_non_preemptible_tries=1
+  pipeline_args.attempts = 2
+  pipeline_args.max_preemptible_tries = 0
+  pipeline_args.max_non_preemptible_tries = 0
   if pipeline_args.gvcf_outfile:
     pipeline_args.postprocess_variants_disk_gb = _POSTPROCESS_VARIANTS_DISK_GVCF
 
