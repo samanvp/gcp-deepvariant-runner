@@ -86,7 +86,7 @@ class MetricsCollectorTest(unittest.TestCase):
                         'source_extension_json':
                             json.dumps(
                                 {
-                                    'console_type': 'CLOUD_HCLS',
+                                    'console_type': 'CLOUD_HCLS_OSS',
                                     'event_metadata': [
                                         {
                                             'key': 'attribute_1',
@@ -111,7 +111,7 @@ class MetricsCollectorTest(unittest.TestCase):
                     {
                         'source_extension_json':
                             json.dumps({
-                                'console_type': 'CLOUD_HCLS',
+                                'console_type': 'CLOUD_HCLS_OSS',
                                 'event_metadata': [
                                     {
                                         'key': 'attribute_1',
@@ -161,7 +161,7 @@ class MetricsCollectorTest(unittest.TestCase):
               {
                   'source_extension_json':
                       json.dumps({
-                          'console_type': 'CLOUD_HCLS',
+                          'console_type': 'CLOUD_HCLS_OSS',
                           'event_metadata': [{
                               'key': 'attribute_1',
                               'value': '1'
@@ -176,7 +176,7 @@ class MetricsCollectorTest(unittest.TestCase):
               {
                   'source_extension_json':
                       json.dumps({
-                          'console_type': 'CLOUD_HCLS',
+                          'console_type': 'CLOUD_HCLS_OSS',
                           'event_metadata': [{
                               'key': 'attribute_2',
                               'value': '2'
@@ -191,7 +191,7 @@ class MetricsCollectorTest(unittest.TestCase):
               {
                   'source_extension_json':
                       json.dumps({
-                          'console_type': 'CLOUD_HCLS',
+                          'console_type': 'CLOUD_HCLS_OSS',
                           'event_metadata': [{
                               'key': 'attribute_3',
                               'value': '3'

@@ -43,7 +43,7 @@ import requests
 from typing import Dict, Optional, Text
 
 _CLEARCUT_ENDPOINT = 'https://play.googleapis.com/log'
-_CLOUD_HCLS = 'CLOUD_HCLS'
+_CLOUD_HCLS_OSS = 'CLOUD_HCLS_OSS'
 _CONCORD = 'CONCORD'
 _DEEP_VARIANT_RUN = 'DeepVariantRun'
 _HTTP_REQUEST_TIMEOUT_SEC = 10
@@ -117,7 +117,7 @@ class _MetricsCollector(object):
         event_name=metrics_name,
         event_type=_DEEP_VARIANT_RUN,
         project_number=project_number,
-        console_type=_CLOUD_HCLS,
+        console_type=_CLOUD_HCLS_OSS,
         page_hostname=_VIRTUAL_HCLS_DEEPVARIANT,
         event_metadata={k: v for k, v in metrics_kw.items()})
     self._events.append(concord_event)
