@@ -182,36 +182,36 @@ class BamCategories(enum.Enum):
 # Default optimal computational flag values, one per BAM category.
 _DEFAULT_FLAGS = {}
 _DEFAULT_FLAGS[BamCategories.WES_SMALL] = {
-    'make_examples_workers': 16,
-    'make_examples_cores_per_worker': 1,
+    'make_examples_workers': 8,
+    'make_examples_cores_per_worker': 2,
     'call_variants_workers': 1,
     'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WES_LARGE] = {
-    'make_examples_workers': 16,
-    'make_examples_cores_per_worker': 1,
+    'make_examples_workers': 8,
+    'make_examples_cores_per_worker': 2,
     'call_variants_workers': 2,
     'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_SMALL] = {
-    'make_examples_workers': 32,
-    'make_examples_cores_per_worker': 1,
+    'make_examples_workers': 16,
+    'make_examples_cores_per_worker': 2,
     'call_variants_workers': 2,
     'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_MEDIUM] = {
-    'make_examples_workers': 64,
-    'make_examples_cores_per_worker': 1,
+    'make_examples_workers': 32,
+    'make_examples_cores_per_worker': 2,
     'call_variants_workers': 4,
     'call_variants_cores_per_worker': 2,
     'gpu': True
 }
 _DEFAULT_FLAGS[BamCategories.WGS_LARGE] = {
-    'make_examples_workers': 128,
-    'make_examples_cores_per_worker': 1,
+    'make_examples_workers': 64,
+    'make_examples_cores_per_worker': 2,
     'call_variants_workers': 8,
     'call_variants_cores_per_worker': 2,
     'gpu': True
@@ -388,13 +388,13 @@ def _get_gcs_object_size(gcs_obj_path):
     return 0
 
   storage_client = storage.Client()
+  bucket = storage_client.bucket(bucket_name)
   try:
-    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.get_blob(obj_name)
   except (google_exceptions.NotFound, google_exceptions.Forbidden) as e:
     logging.error('Unable to access GCS bucket: %s', str(e))
     return 0
 
-  blob = bucket.get_blob(obj_name)
   if blob is None:
     return 0
   return blob.size
@@ -512,9 +512,8 @@ def _set_computational_flags_based_on_bam_size(pipeline_args):
   # Following flags are independent of BAM file category.
   pipeline_args.gcsfuse = True
   pipeline_args.preemptible = True
-  pipeline_args.attempts = 2
-  pipeline_args.max_preemptible_tries = 0
-  pipeline_args.max_non_preemptible_tries = 0
+  pipeline_args.max_preemptible_tries = 2
+  pipeline_args.max_non_preemptible_tries = 1
   if pipeline_args.gvcf_outfile:
     pipeline_args.postprocess_variants_disk_gb = _POSTPROCESS_VARIANTS_DISK_GVCF
 
@@ -895,7 +894,7 @@ def _validate_and_complete_args(pipeline_args):
     pipeline_args.ref_gzi = pipeline_args.ref + _GZI_FILE_SUFFIX
   if not pipeline_args.bai:
     pipeline_args.bai = pipeline_args.bam + _BAI_FILE_SUFFIX
-    if not _gcs_object_exist(pipeline_args.bai):
+    if _get_gcs_object_size(pipeline_args.bai) == 0:
       pipeline_args.bai = pipeline_args.bam.replace(_BAM_FILE_SUFFIX,
                                                     _BAI_FILE_SUFFIX)
 

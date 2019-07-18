@@ -657,8 +657,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
-    expected_workers = 16
-    expected_cores = 1
+    expected_workers = 8
+    expected_cores = 2
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -702,29 +702,29 @@ class DeepvariantRunnerTest(unittest.TestCase):
         recieved_actions_list = json.load(json_file)
 
       expected_actions_list = []
-      gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
-          BUCKET='bucket',
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_create_command],
-           'entrypoint': '/bin/sh',
-           'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
-      gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_verify_command],
-           'entrypoint': '/bin/sh',
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+      for core_index in range(expected_cores):
+        local_dir = gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
+            SHARD_INDEX=worker_index * expected_cores + core_index)
+        gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
+            BUCKET='bucket', LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_create_command],
+             'entrypoint': '/bin/sh',
+             'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+        gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
+            LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_verify_command],
+             'entrypoint': '/bin/sh',
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
       make_examples_command = make_examples_template.format(
-          SHARD_START_INDEX=worker_index,
-          SHARD_END_INDEX=worker_index,
+          SHARD_START_INDEX=worker_index * expected_cores,
+          SHARD_END_INDEX=(worker_index + 1) * expected_cores - 1,
           TASK_INDEX='{}',
           INPUT_BAM='/mnt/google/input-gcsfused-{}/bam.bam')
       expected_actions_list.append(
@@ -747,8 +747,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 + 1
-    expected_workers = 16
-    expected_cores = 1
+    expected_workers = 8
+    expected_cores = 2
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -793,29 +793,29 @@ class DeepvariantRunnerTest(unittest.TestCase):
         recieved_actions_list = json.load(json_file)
 
       expected_actions_list = []
-      gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
-          BUCKET='bucket',
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_create_command],
-           'entrypoint': '/bin/sh',
-           'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
-      gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_verify_command],
-           'entrypoint': '/bin/sh',
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+      for core_index in range(expected_cores):
+        local_dir = gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
+            SHARD_INDEX=worker_index * expected_cores + core_index)
+        gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
+            BUCKET='bucket', LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_create_command],
+             'entrypoint': '/bin/sh',
+             'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+        gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
+            LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_verify_command],
+             'entrypoint': '/bin/sh',
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
       make_examples_command = make_examples_template.format(
-          SHARD_START_INDEX=worker_index,
-          SHARD_END_INDEX=worker_index,
+          SHARD_START_INDEX=worker_index * expected_cores,
+          SHARD_END_INDEX=(worker_index + 1) * expected_cores - 1,
           TASK_INDEX='{}',
           INPUT_BAM='/mnt/google/input-gcsfused-{}/bam.bam')
       expected_actions_list.append(
@@ -838,8 +838,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
-    expected_workers = 32
-    expected_cores = 1
+    expected_workers = 16
+    expected_cores = 2
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -884,29 +884,29 @@ class DeepvariantRunnerTest(unittest.TestCase):
         recieved_actions_list = json.load(json_file)
 
       expected_actions_list = []
-      gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
-          BUCKET='bucket',
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_create_command],
-           'entrypoint': '/bin/sh',
-           'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
-      gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_verify_command],
-           'entrypoint': '/bin/sh',
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+      for core_index in range(expected_cores):
+        local_dir = gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
+            SHARD_INDEX=worker_index * expected_cores + core_index)
+        gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
+            BUCKET='bucket', LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_create_command],
+             'entrypoint': '/bin/sh',
+             'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+        gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
+            LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_verify_command],
+             'entrypoint': '/bin/sh',
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
       make_examples_command = make_examples_template.format(
-          SHARD_START_INDEX=worker_index,
-          SHARD_END_INDEX=worker_index,
+          SHARD_START_INDEX=worker_index * expected_cores,
+          SHARD_END_INDEX=(worker_index + 1) * expected_cores - 1,
           TASK_INDEX='{}',
           INPUT_BAM='/mnt/google/input-gcsfused-{}/bam.bam')
       expected_actions_list.append(
@@ -929,8 +929,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
-    expected_workers = 64
-    expected_cores = 1
+    expected_workers = 32
+    expected_cores = 2
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -975,29 +975,29 @@ class DeepvariantRunnerTest(unittest.TestCase):
         recieved_actions_list = json.load(json_file)
 
       expected_actions_list = []
-      gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
-          BUCKET='bucket',
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_create_command],
-           'entrypoint': '/bin/sh',
-           'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
-      gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_verify_command],
-           'entrypoint': '/bin/sh',
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+      for core_index in range(expected_cores):
+        local_dir = gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
+            SHARD_INDEX=worker_index * expected_cores + core_index)
+        gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
+            BUCKET='bucket', LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_create_command],
+             'entrypoint': '/bin/sh',
+             'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+        gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
+            LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_verify_command],
+             'entrypoint': '/bin/sh',
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
       make_examples_command = make_examples_template.format(
-          SHARD_START_INDEX=worker_index,
-          SHARD_END_INDEX=worker_index,
+          SHARD_START_INDEX=worker_index * expected_cores,
+          SHARD_END_INDEX=(worker_index + 1) * expected_cores - 1,
           TASK_INDEX='{}',
           INPUT_BAM='/mnt/google/input-gcsfused-{}/bam.bam')
       expected_actions_list.append(
@@ -1020,8 +1020,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     mock_apply_async.return_value = None
     mock_can_write_to_bucket.return_value = True
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
-    expected_workers = 128
-    expected_cores = 1
+    expected_workers = 64
+    expected_cores = 2
     expected_shards = expected_workers * expected_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -1066,29 +1066,29 @@ class DeepvariantRunnerTest(unittest.TestCase):
         recieved_actions_list = json.load(json_file)
 
       expected_actions_list = []
-      gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
-          BUCKET='bucket',
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_create_command],
-           'entrypoint': '/bin/sh',
-           'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
-      gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
-          LOCAL_DIR=gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
-              SHARD_INDEX=worker_index))
-      expected_actions_list.append(
-          {'commands':
-           ['-c', gcsfuse_verify_command],
-           'entrypoint': '/bin/sh',
-           'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
-           'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+      for core_index in range(expected_cores):
+        local_dir = gcp_deepvariant_runner._GCSFUSE_LOCAL_DIR_TEMPLATE.format(
+            SHARD_INDEX=worker_index * expected_cores + core_index)
+        gcsfuse_create_command = gcp_deepvariant_runner._GCSFUSE_CREATE_COMMAND_TEMPLATE.format(
+            BUCKET='bucket', LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_create_command],
+             'entrypoint': '/bin/sh',
+             'flags': ['RUN_IN_BACKGROUND', 'ENABLE_FUSE'],
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
+        gcsfuse_verify_command = gcp_deepvariant_runner._GCSFUSE_VERIFY_COMMAND_TEMPLATE.format(
+            LOCAL_DIR=local_dir)
+        expected_actions_list.append(
+            {'commands':
+             ['-c', gcsfuse_verify_command],
+             'entrypoint': '/bin/sh',
+             'mounts': [{'disk': 'google', 'path': '/mnt/google'}],
+             'imageUri': 'gcr.io/cloud-genomics-pipelines/gcsfuse'})
       make_examples_command = make_examples_template.format(
-          SHARD_START_INDEX=worker_index,
-          SHARD_END_INDEX=worker_index,
+          SHARD_START_INDEX=worker_index * expected_cores,
+          SHARD_END_INDEX=(worker_index + 1) * expected_cores - 1,
           TASK_INDEX='{}',
           INPUT_BAM='/mnt/google/input-gcsfused-{}/bam.bam')
       expected_actions_list.append(
@@ -1113,7 +1113,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 - 1
     expected_workers = 1
-    expected_cores = 4
+    expected_cores = 2
     expected_shards = 16  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -1154,7 +1154,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_object_size.return_value = 12 * 1024 * 1024 * 1024 + 1
     expected_workers = 2
-    expected_cores = 4
+    expected_cores = 2
     expected_shards = 16  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -1195,7 +1195,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 - 1
     expected_workers = 2
-    expected_cores = 4
+    expected_cores = 2
     expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -1236,7 +1236,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_object_size.return_value = 25 * 1024 * 1024 * 1024 + 1
     expected_workers = 4
-    expected_cores = 4
+    expected_cores = 2
     expected_shards = 64  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -1277,7 +1277,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
 
     mock_object_size.return_value = 200 * 1024 * 1024 * 1024 + 1
     expected_workers = 8
-    expected_cores = 4
+    expected_cores = 2
     expected_shards = 128  # equals to make_exmples: num_wokers * num_cores
     expected_ram = expected_cores * gcp_deepvariant_runner._RAM_PER_CORE * 1024
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
@@ -1317,8 +1317,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     call_variant_workers = 2
     expected_shards = 32  # equals to make_exmples: num_wokers * num_cores
     # Default flag values
-    expected_cores = 8
-    expected_ram = 30 * 1024
+    expected_cores = 4
+    expected_ram = 16 * 1024
     expected_gvcf_disk = gcp_deepvariant_runner._POSTPROCESS_VARIANTS_DISK_GVCF
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
                       gcp_deepvariant_runner._WGS_STANDARD,
@@ -1352,8 +1352,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
     call_variant_workers = 8
     expected_shards = 128  # equals to make_exmples: num_wokers * num_cores
     # Default flag values
-    expected_cores = 8
-    expected_ram = 30 * 1024
+    expected_cores = 4
+    expected_ram = 16 * 1024
     expected_disk = 30
     self._update_argv(gcp_deepvariant_runner._BAM_FILE_SUFFIX,
                       gcp_deepvariant_runner._WGS_STANDARD,
