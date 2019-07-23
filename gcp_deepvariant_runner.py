@@ -315,13 +315,13 @@ def report_runtime_metrics(method_name):
       if pipeline_args.stop_collecting_anonymous_usage_metrics:
         func(pipeline_args, *args, **kwargs)
       else:
-        success = False
+        status = '_Failure'
         start = time.time()
         try:
           func(pipeline_args, *args, **kwargs)
-          success = True
+          status = '_Success'
         finally:
-          metrics_name = method_name + ('_Success' if success else '_Failure')
+          metrics_name = method_name + status
           metrics.add(
               _get_project_number(pipeline_args.project),
               metrics_name,
@@ -1106,7 +1106,11 @@ def run(argv=None):
       '--stop_collecting_anonymous_usage_metrics',
       default=False,
       action='store_true',
-      help=('Use preemptible VMs for the pipeline.'))
+      help=('This tool collects some anonymous metrics related to utilized '
+            'resources, such as how many workers, how many CPU cores, how much '
+            'ram, etc. was used to run each step of DeepVariant. We use these '
+            'metrics to further improve the usibility of our tool. You can '
+            'compeletly stop collecting these metrics by setting this flag.'))
 
   pipeline_args = parser.parse_args(argv)
   _validate_and_complete_args(pipeline_args)
@@ -1124,6 +1128,10 @@ def run(argv=None):
         # General run related settings.
         image_version=get_image_version(pipeline_args.docker_image),
         model_version=get_model_version(pipeline_args.model),
+        input_file_format=(
+            _BAM_FILE_SUFFIX if pipeline_args.bam.endswith(_BAM_FILE_SUFFIX)
+            else _CRAM_FILE_SUFFIX),
+        zones=pipeline_args.zones,
         genomic_regions=(
             len(pipeline_args.regions) if pipeline_args.regions else 0),
         shards=pipeline_args.shards,

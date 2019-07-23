@@ -663,6 +663,7 @@ class DeepvariantRunnerTest(unittest.TestCase):
             gpu=True,
             gvcf=True,
             image_version='tag',
+            input_file_format='.cram',
             jobs_to_run=[
                 'make_examples', 'call_variants', 'postprocess_variants'],
             make_examples_cores_per_worker=8,
@@ -675,7 +676,8 @@ class DeepvariantRunnerTest(unittest.TestCase):
             postprocess_variants_ram_gb=16,
             preemptible=False,
             shards=16,
-            tpu=False),
+            tpu=False,
+            zones=['zone-a', 'zone-b']),
         mock.call(1000, 'MakeExamples_Success', duration_seconds=0),
         mock.call(1000, 'CallVariants_Success', duration_seconds=0),
         mock.call(1000, 'PostprocessVariants_Success', duration_seconds=0)
