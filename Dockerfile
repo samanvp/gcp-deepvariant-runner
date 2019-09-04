@@ -4,31 +4,20 @@
 # Install pipelines tool.
 FROM golang:1.11
 RUN go get -ldflags '-extldflags "-fno-PIC -static"' -buildmode pie -tags 'osusergo netgo static_build' github.com/googlegenomics/pipelines-tools/pipelines
-#FROM golang:1.10
-#ENV GOPATH /go
-#RUN go get github.com/googlegenomics/pipelines-tools/pipelines
-
 
 FROM google/cloud-sdk:alpine
 
 # Copy pipelines tool from the previous step.
 COPY --from=0 /go/bin/pipelines /usr/bin
-#ENV GOPATH /go
-#COPY --from=0 /go/ $GOPATH
-#ENV PATH $PATH:$GOPATH/bin
+
+ARG commit_sha
+ENV COMMIT_SHA=${commit_sha}
 
 RUN apk add --update python3 python3-dev build-base && \
     ln -sf python3 /usr/bin/python && \
     pip3 install --upgrade pip enum34 retrying google-api-core google-cloud-storage && \
     mkdir -p /opt/deepvariant_runner/bin && \
     mkdir -p /opt/deepvariant_runner/src
-
-# Kubernetes TPU is in beta.
-#RUN gcloud components install beta -q
-
-# Install kubernetes.
-#RUN curl -L -o /usr/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/latest.txt)/bin/linux/amd64/kubectl && \
-#    chmod +x /usr/bin/kubectl
 
 ADD LICENSE /
 ADD gcp_deepvariant_runner.py /opt/deepvariant_runner/src/
