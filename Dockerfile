@@ -3,15 +3,12 @@
 
 # Install pipelines tool.
 FROM golang:1.11
-RUN go get -ldflags '-extldflags "-fno-PIC -static"' -buildmode pie -tags 'osusergo netgo static_build' github.com/googlegenomics/pipelines-tools/pipelines
+RUN go get github.com/googlegenomics/pipelines-tools/pipelines
 
 FROM google/cloud-sdk:alpine
 
 # Copy pipelines tool from the previous step.
 COPY --from=0 /go/bin/pipelines /usr/bin
-
-ARG commit_sha
-ENV COMMIT_SHA=${commit_sha}
 
 RUN apk add --update python3 python3-dev build-base && \
     ln -sf python3 /usr/bin/python && \
